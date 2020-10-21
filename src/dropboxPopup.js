@@ -38,6 +38,27 @@ export default class DropboxPopup {
     });
     this.redirectUri = options.redirectUri;
   }
+  
+   /**
+   * The main function to handle authentication via a popup window.
+   *
+   * @param {Function} callback - The callback function which will utilize the DropboxAuth object.
+   * @returns {void}
+   */
+  showPopup() {
+    return new Promise((resolve, reject) => {
+      
+      const authUrl = this.authObject.getAuthenticationUrl(this.redirectUri, '', 'code', 'offline');
+      const popupWindow = window.open(authUrl, popupName, popupFeatures);
+      popupWindow.focus();
+      window.addEventListener('message', (event) =>, false);
+      
+    });
+    window.removeEventListener('message', this.handleRedirect);
+    this.callback = callback;
+    this.callback.bind(this);
+  }
+
 
   /**
    * The main function to handle authentication via a popup window.
@@ -46,14 +67,18 @@ export default class DropboxPopup {
    * @returns {void}
    */
   authUser(callback) {
-    window.removeEventListener('message', this.handleRedirect);
     this.callback = callback;
     this.callback.bind(this);
     const authUrl = this.authObject.getAuthenticationUrl(this.redirectUri, '', 'code', 'offline');
     const popupWindow = window.open(authUrl, popupName, popupFeatures);
     popupWindow.focus();
-
-    window.addEventListener('message', (event) => this.handleRedirect(event), false);
+    
+    const callback = async (event) => {
+      await authUser = this.handleRedirect(event);
+      resolve(authUser);
+      window.removeEventListener('message', callback);
+    }
+    window.addEventListener('message', callback, false);
   }
 
   /**
@@ -72,7 +97,7 @@ export default class DropboxPopup {
         this.authObject.setAccessToken(result.access_token);
         this.authObject.setRefreshToken(result.refresh_token);
         this.authObject.setAccessTokenExpiresAt(new Date(Date.now() + result.expires_in));
-        this.callback(this.authObject);
+        return this.authObject
       })
       .catch((error) => {
         throw error;
